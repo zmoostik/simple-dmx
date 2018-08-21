@@ -1,64 +1,79 @@
-var SerialPort = require("serialport");
-//http://peterelsea.com/Maxtuts_advanced/Controlling_DMX.pdf
+//see: enttec dmx_usb_pro_api.pdf
 
-var ENTTEC_PRO_DMX_STARTCODE = 0x00;
-var ENTTEC_PRO_START_OF_MSG = 0x7e;
-var ENTTEC_PRO_END_OF_MSG = 0xe7;
-var ENTTEC_PRO_SEND_DMX_RQ = 0x06;
-var ENTTEC_PRO_RECV_DMX_PKT = 0x05;
+var SerialPort = require("serialport");
 
 function EnttecUSBDMXPRO(device_id) {
 	this.channels = new Buffer(512);
 	this.channels.fill(0);
-	this.device = null;
-	this.device_id = device_id;
+	this.port = new SerialPort(device_id, {
+		'baudRate': 250000,
+		'dataBits': 8,
+		'stopBits': 2,
+		'parity': 'none',
+		'autoOpen': false
+	});
+	this.opened = false;
+	this.init();
 }
 
+EnttecUSBDMXPRO.prototype.DMX_STARTCODE = 0x00;
+EnttecUSBDMXPRO.prototype.START_OF_MSG = 0x7e;
+EnttecUSBDMXPRO.prototype.END_OF_MSG = 0xe7;
+EnttecUSBDMXPRO.prototype.SEND_DMX_RQ = 0x06;
+EnttecUSBDMXPRO.prototype.RECV_DMX_PKT = 0x05;
+
 EnttecUSBDMXPRO.prototype.sendMessage = function(label, data) {
-        if(!this.dev || !this.dev.writable) {
-                return;
-        }
-        var header = Buffer([
-                ENTTEC_PRO_START_OF_MSG,
-                label,
-                data.length & 0xff,
-                (data.length >> 8) & 0xff
-        ]);
+	if (!this.opened) {
+			console.log("serial port is not opened");
+			return;
+	}
+
+	var header = Buffer([
+		this.START_OF_MSG,
+		label,
+		data.length & 0xff,
+		(data.length >> 8) & 0xff
+	]);
 
 	var buf = Buffer.concat([
 		header,
 		data,
-        	Buffer([ENTTEC_PRO_END_OF_MSG])
-        ]);
+		Buffer([this.END_OF_MSG])
+	]);
 
-        console.log("write", buf);
-        this.dev.write(buf);
+	console.log("write", buf);
+	this.port.write(buf);
 }
 
 
 EnttecUSBDMXPRO.prototype.send = function() {
 	var msg = Buffer.concat([
-		Buffer([ENTTEC_PRO_DMX_STARTCODE]),
+		Buffer([this.DMX_STARTCODE]),
 		this.channels
 	]);
-	this.sendMessage(ENTTEC_PRO_SEND_DMX_RQ, msg);
+	this.sendMessage(this.SEND_DMX_RQ, msg);
+}
+
+EnttecUSBDMXPRO.prototype.init = function() {
+	this.port.on("error", function(err) {
+		console.log("serial port error", err);
+	});
+
+	this.port.on("open", function() {
+		console.log("serial port opened");
+	});
 }
 
 EnttecUSBDMXPRO.prototype.open = function(cb) {
 	var self = this;
-	console.log("open", this.device_id);
+	console.log("opening...");
 
-	this.dev = new SerialPort(this.device_id, {
-		'baudRate': 250000,
-		'dataBits': 8,
-		'stopBits': 2,
-		'parity': 'none'
-	}, function(err) {
+	this.port.open(function(err) {
 		if (err) {
 			console.log("could not connect");
-			return false;
+			return;
 		}	
-
+		this.opened = true;
 		console.log("connected");
 		self.send();
 		if (cb) cb(err);
@@ -66,7 +81,7 @@ EnttecUSBDMXPRO.prototype.open = function(cb) {
 }
 
 EnttecUSBDMXPRO.prototype.close = function(cb) {
-	this.dev.close(cb);
+	this.port.close(cb);
 }
 
 EnttecUSBDMXPRO.prototype.set = function(channel, value) {
