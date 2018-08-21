@@ -1,0 +1,13 @@
+{
+	"name": "simple-dmx",
+	"version": "0.0.1",
+	"author": "Vion Nicolas <nico@picapo.net>",
+	"url": "https://github.com/TiceLab-MinesParisTech/node-dmx",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/TiceLab-MinesParisTech/node-dmx.git"
+	},
+	"dependencies": {
+		"serialport": "^6.0.4"
+	}
+}
