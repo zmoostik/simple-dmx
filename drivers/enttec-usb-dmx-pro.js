@@ -12,7 +12,6 @@ function EnttecUSBDMXPRO(device_id) {
 		'parity': 'none',
 		'autoOpen': false
 	});
-	this.opened = false;
 	this.init();
 }
 
@@ -23,9 +22,9 @@ EnttecUSBDMXPRO.prototype.SEND_DMX_RQ = 0x06;
 EnttecUSBDMXPRO.prototype.RECV_DMX_PKT = 0x05;
 
 EnttecUSBDMXPRO.prototype.sendMessage = function(label, data) {
-	if (!this.opened) {
-			console.log("serial port is not opened");
-			return;
+	if (!this.port.isOpen) {
+		console.log("serial port is not opened");
+		return;
 	}
 
 	var header = Buffer([
@@ -45,7 +44,6 @@ EnttecUSBDMXPRO.prototype.sendMessage = function(label, data) {
 	this.port.write(buf);
 }
 
-
 EnttecUSBDMXPRO.prototype.send = function() {
 	var msg = Buffer.concat([
 		Buffer([this.DMX_STARTCODE]),
@@ -53,6 +51,10 @@ EnttecUSBDMXPRO.prototype.send = function() {
 	]);
 	this.sendMessage(this.SEND_DMX_RQ, msg);
 }
+
+EnttecUSBDMXPRO.prototype.on = function(name, cb) {
+	this.port.on(name, cb);
+};
 
 EnttecUSBDMXPRO.prototype.init = function() {
 	this.port.on("error", function(err) {
@@ -62,23 +64,19 @@ EnttecUSBDMXPRO.prototype.init = function() {
 	this.port.on("open", function() {
 		console.log("serial port opened");
 	});
-}
 
-EnttecUSBDMXPRO.prototype.open = function(cb) {
-	var self = this;
-	console.log("opening...");
-
-	this.port.open(function(err) {
-		if (err) {
-			console.log("could not connect");
-			return;
-		}	
-		this.opened = true;
-		console.log("connected");
-		self.send();
-		if (cb) cb(err);
+	this.port.on("close", function() {
+		console.log("serial port closed");
 	});
 }
+
+EnttecUSBDMXPRO.prototype.isOpen = function() {
+	return this.port.isOpen;
+};
+
+EnttecUSBDMXPRO.prototype.open = function(cb) {
+	this.port.open(cb);
+};
 
 EnttecUSBDMXPRO.prototype.close = function(cb) {
 	this.port.close(cb);
